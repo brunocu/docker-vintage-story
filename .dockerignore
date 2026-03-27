@@ -1,0 +1,15 @@
+# Git
+.git
+.gitignore
+
+# Test data
+test-data/
+*.log
+
+# Documentation
+*.md
+
+# Temporary files
+*.tmp
+*.swp
+*~
