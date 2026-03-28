@@ -1,4 +1,4 @@
-# Vintage Story Dedicated Server Container
+# Vintage Story Containerized Server
 
 A custom container image for running a Vintage Story dedicated server.
 
@@ -6,22 +6,23 @@ A custom container image for running a Vintage Story dedicated server.
 
 - **Runtime CDN downloads**: Server binary downloaded on first start from official CDN
 - **Automatic version resolution**: Specify "stable" or "unstable" to always get latest
-- **Environment variable configuration**: All server settings configurable via env vars
-- **Persistent storage**: World data and configs stored in `/data` volume
+- **Environment variable configuration**: `VS_VERSION` and `VS_PORT` are configurable via env vars.
 
 ## Quick Start
 
 ### Minimum Working Example
 
 ```bash
-docker run -d -p 42420:42420/tcp -p 42420:42420/udp ghcr.io/YOUR_USERNAME/vintage-story:latest
+docker run -d \
+  -p 42420:42420/tcp \
+  -p 42420:42420/udp \
+  ghcr.io/brunocu/docker-vintage-story:latest
 ```
 
 This will:
 - Download the latest stable Vintage Story server
 - Create a default world
 - Start the server on port 42420
-- Store all data in the container's `/data` volume
 
 ### With Persistent Storage
 
@@ -31,121 +32,47 @@ mkdir -p ~/vintagestory-data
 docker run -d \
   -p 42420:42420/tcp \
   -p 42420:42420/udp \
-  -v ~/vintagestory-data:/data \
-  ghcr.io/YOUR_USERNAME/vintage-story:latest
+  -v ~/vintagestory-data:/data \  # Mount host directory for persistent data
+  ghcr.io/brunocu/docker-vintage-story:latest
 ```
 
 ### With Custom Configuration
 
 ```bash
-# Start server on custom port
+# Start server on custom version and port
 docker run -d \
   -p 42421:42421/tcp \
   -p 42421:42421/udp \
   -v ~/vintagestory-data:/data \
   -e VS_VERSION="1.21.6" \
   -e VS_PORT="42421" \
-  ghcr.io/YOUR_USERNAME/vintage-story:latest
-
-# Wait for first run to complete (generates default config)
-docker logs -f <container_name>
-
-# Edit the generated config file
-vim ~/vintagestory-data/serverconfig.json
-
-# Restart to apply changes
-docker restart <container_name>
+  ghcr.io/brunocu/docker-vintage-story:latest
 ```
 
-**Note:** Server name, passwords, max clients, and other settings must be configured by editing `/data/serverconfig.json` after initial generation.
-
+**Note:** Server name, passwords, max clients, and other settings must be configured via commands or editing `/data/serverconfig.json` after initial generation. See [Setting up a Multiplayer Server](https://wiki.vintagestory.at/index.php?title=Setting_up_a_Multiplayer_Server#Basic_Configuration) for details.
 ## Environment Variables
 
-### Version Management
-
 | Variable | Default | Description |
-|----------|---------|-------------|
-| `VS_VERSION` | `stable` | Server version. Use "stable", "unstable", or specific version like "1.21.0" |
+|---|---|---|
+| `VS_VERSION` | `stable` | Server version. Use `stable`, `unstable`, or a specific version like `1.21.0`. |
+| `VS_PORT` | `42420` | Server port. |
 
-### Server Configuration (Command Line)
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VS_PORT` | `42420` | Server port (TCP) |
-
-**Note:** Most server configuration (server name, max clients, passwords, world settings, etc.) should be done via commands, or editing `/data/serverconfig.json` after the server generates it on first run: [Basic configuration guide](https://wiki.vintagestory.at/index.php?title=Setting_up_a_Multiplayer_Server#Basic_Configuration)
-
-## Building the Image
-
-### Prerequisites
-
-- Docker or Podman installed
-- GitHub account (for pushing to ghcr.io)
-- GitHub Personal Access Token with `write:packages` scope
-
-### Build
-
-```bash
-cd containers/vintage-story
-docker build -t vintage-story:local .
-```
-
-### Test Locally
-
-```bash
-# Create test data directory
-mkdir -p test-data
-
-# Run container with local image
-docker run -d --name vs-test \
-  -p 42420:42420/tcp \
-  -p 42420:42420/udp \
-  -v $(pwd)/test-data:/data \
-  vintage-story:local
-
-# Check logs (watch for version resolution and download)
-docker logs -f vs-test
-
-# Verify server is running
-docker exec vs-test ps aux
-
-# Stop and clean up
-docker stop vs-test
-docker rm vs-test
-rm -rf test-data
-```
-
-### Push to GitHub Container Registry
-
-```bash
-# Tag for registry
-docker tag vintage-story:local ghcr.io/YOUR_USERNAME/vintage-story:latest
-
-# Authenticate
-echo "YOUR_GITHUB_TOKEN" | docker login ghcr.io -u YOUR_USERNAME --password-stdin
-
-# Push image
-docker push ghcr.io/YOUR_USERNAME/vintage-story:latest
-```
 
 ## How It Works
 
 ### Container Startup Flow
 
-1. **Runs as root** (PID 1) to perform privileged setup
-2. **Determines target user**: Uses `UID`/`GID` env vars if provided, otherwise defaults to 1000:1000
-3. **Version resolution**: If `VS_VERSION` is "stable" or "unstable", queries dedicated API endpoint for latest version
-4. **Download check**: Compares requested version against cached version in `/data/.vs-server/.version`
-5. **Download if needed**:
+1. **Determines target user**: Uses `UID`/`GID` env vars if provided, otherwise defaults to 1000:1000
+2. **Version resolution**: If `VS_VERSION` is "stable" or "unstable", queries API for latest version
+3. **Download check**: Compares requested version against cached version in `/data/.vs-server/.version`
+4. **Download if needed**:
    - Fetches download URL and MD5 from API manifest
-   - Downloads server tarball from CDN (3 retries with 10s delay)
+   - Downloads server tarball from CDN
    - Verifies MD5 checksum
    - Extracts to `/data/.vs-server/`
    - Saves version to tracking file
-6. **Fix ownership**: Runs `chown -R $TARGET_UID:$TARGET_GID /data` to ensure proper permissions
-7. **Drop privileges**: Uses `gosu` to execute server as non-root user
-8. **Start server**: Runs `VintagestoryServer --dataPath /data --port $VS_PORT --ip 0.0.0.0`
-9. **First run**: Server generates default `/data/serverconfig.json` with all required fields, roles, and settings
+5. **Drop privileges**: Executes server as non-root user
+6. **Start server**: Runs `VintagestoryServer --dataPath /data --port $VS_PORT --ip 0.0.0.0`
 
 ### Directory Structure
 
@@ -187,7 +114,7 @@ docker run -d --name vintagestory \
   -p 42420:42420/udp \
   -v ~/vintagestory-data:/data \
   -e VS_VERSION="1.23.0" \
-  ghcr.io/YOUR_USERNAME/vintage-story:latest
+  ghcr.io/brunocu/docker-vintage-story:latest
 ```
 
 ## Troubleshooting
@@ -197,7 +124,7 @@ docker run -d --name vintagestory \
 **Symptom**: Container logs show "Failed to download server after 3 attempts"
 
 **Solutions**:
-- Check internet connectivity: `docker exec vintagestory curl -I https://api.vintagestory.at`
+- Check container internet connectivity: `docker exec vintagestory curl -I https://api.vintagestory.at`
 - Verify API is accessible: `curl https://api.vintagestory.at/stable-unstable.json`
 - Manually download and extract to `/data/.vs-server/` if CDN is unreachable
 
@@ -218,7 +145,7 @@ docker run -d --name vintagestory \
 **Solutions**:
 - Check if port is in use: `netstat -tuln | grep 42420`
 - Change port: `-e VS_PORT="42421"`
-- Stop conflicting service or change port mapping: `-p 42421:42420`
+- Stop conflicting service or change port mapping: e.g. `-p 42421:42420`
 
 ### UDP Not Working (Position Updates Laggy)
 
@@ -232,7 +159,7 @@ docker run -d \
   -p 42420:42420/tcp \
   -p 42420:42420/udp \
   -v ~/vintagestory-data:/data \
-  ghcr.io/YOUR_USERNAME/vintage-story:latest
+  ghcr.io/brunocu/docker-vintage-story:latest
 ```
 
 ### Disk Space
@@ -250,7 +177,7 @@ This container image's architecture and patterns were inspired by [itzg/docker-m
 
 ## License
 
-This container image is provided as-is. Vintage Story is a trademark of Aenigma Mundi Interactive GmbH.
+This container image is provided as-is. Vintage Story is a trademark of Anego Studios SIA.
 
 ## Support
 
