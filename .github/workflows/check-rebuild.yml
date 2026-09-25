@@ -8,7 +8,7 @@ on:
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
-  BASE_IMAGE: mcr.microsoft.com/dotnet/runtime:8.0-bookworm-slim
+  BASE_IMAGE: mcr.microsoft.com/dotnet/runtime:10.0-noble
 
 jobs:
   check-and-rebuild:
@@ -23,7 +23,7 @@ jobs:
 
       - name: Check for base image updates
         id: check
-        uses: lucacome/docker-image-update-checker@v3.0.1
+        uses: lucacome/docker-image-update-checker@v3.1.2
         with:
           base-image: ${{ env.BASE_IMAGE }}
           image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
@@ -54,7 +54,7 @@ jobs:
         if: steps.check.outputs.needs-updating == 'true'
         uses: docker/build-push-action@v6
         with:
-          context: containers/vintage-story
+          context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

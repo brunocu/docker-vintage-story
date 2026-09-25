@@ -7,6 +7,17 @@ A custom container image for running a Vintage Story dedicated server.
 - **Runtime CDN downloads**: Server binary downloaded on first start from official CDN
 - **Automatic version resolution**: Specify "stable" or "unstable" to always get latest
 - **Environment variable configuration**: `VS_VERSION` and `VS_PORT` are configurable via env vars.
+- **Multi-version support**: Bundles multiple .NET runtimes.
+
+## Supported Versions
+
+| Vintage Story version | .NET runtime |
+|---|---|
+| 1.18.8 – 1.20.x | 7 |
+| 1.21.x | 8 |
+| 1.22.0 and later | 10 |
+
+Versions before 1.18.8 used Mono and are not supported by this image.
 
 ## Quick Start
 
